@@ -34,10 +34,11 @@ const TextBold = styled.Text`
   margin-left: 5px;
 `
 
-export default function DepartureInformation() {
+export default function DepartureInformation(props) {
 const {
     place: {currentPlace},
     } = usePlace();
+    const { onButtonClick } = props;
   return (
     <Container platform={Platform.OS}>
     <Row>
@@ -52,7 +53,7 @@ const {
 
     <BookNow>
       <BookNowButton
-        onPress={() => console.log('pressed')}
+        onPress={onButtonClick}
         testID="book-now-button">
         <ButtonText>Book now</ButtonText>
       </BookNowButton>

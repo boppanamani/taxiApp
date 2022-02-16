@@ -9,6 +9,10 @@ import DepartureInformation from '../components/DepartureInformation';
 import Geocoder from 'react-native-geocoding';
 import {usePlace} from '../context/PlacesManager';
 import {GOOGLE_MAPS_API_KEY} from '../utils/constants';
+import { PermissionsAndroid } from 'react-native';
+
+import ReactNativeForegroundService from '@supersami/rn-foreground-service';
+import RNLocation from 'react-native-location';
 Geocoder.init(GOOGLE_MAPS_API_KEY, {language: 'en'});
 
 
@@ -22,6 +26,8 @@ const mapContainer = {
 
 const UserScreen = () => {
   const [location, setLocation] = useState(null)
+
+//   
 
   const handleLocationPermission = async () => {
     let permissionCheck = ""
@@ -51,9 +57,86 @@ const UserScreen = () => {
       }
     }
   }
+  const handleBackgroundPermission = async() =>
+  {
+    const backgroundgranted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+            {
+              title: 'Background Location Permission',
+              message:
+                'We need access to your location ' +
+                'so you can get live quality updates.',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            },
+          );
+          if (backgroundgranted === PermissionsAndroid.RESULTS.GRANTED) {
+        
+                RNLocation.configure({
+                    distanceFilter: 100, // Meters
+                    desiredAccuracy: {
+                    ios: 'best',
+                    android: 'balancedPowerAccuracy',
+                    },
+                    // Android only
+                    androidProvider: 'auto',
+                    interval: 5000, // Milliseconds
+                    fastestInterval: 10000, // Milliseconds
+                    maxWaitTime: 5000, // Milliseconds
+                    // iOS Only
+                    activityType: 'other',
+                    allowsBackgroundLocationUpdates: false,
+                    headingFilter: 1, // Degrees
+                    headingOrientation: 'portrait',
+                    pausesLocationUpdatesAutomatically: false,
+                    showsBackgroundLocationIndicator: false,
+                });
+                let locationSubscription = null;
+                let locationTimeout = null;
+                
+                ReactNativeForegroundService.add_task(
+                    () => {
+                    RNLocation.requestPermission({
+                        ios: 'whenInUse',
+                        android: {
+                        detail: 'fine',
+                        },
+                    }).then((granted) => {
+                        console.log('Location Permissions: ', granted);
+                        // if has permissions try to obtain location with RN location
+                        if (granted) {
+                        locationSubscription && locationSubscription();
+                        locationSubscription = RNLocation.subscribeToLocationUpdates(
+                            ([locations]) => {
+                            locationSubscription();
+                            locationTimeout && clearTimeout(locationTimeout);
+                            console.log(locations);
+                            },
+                        );
+                        } else {
+                        locationSubscription && locationSubscription();
+                        locationTimeout && clearTimeout(locationTimeout);
+                        console.log('no permissions to obtain location');
+                        }
+                    });
+                    },
+                    {
+                    delay: 1000,
+                    onLoop: true,
+                    taskId: 'taskid',
+                    onError: (e) => console.log('Error logging:', e),
+                    },
+                );
+            
+          }else{
+              console.log('permission not granted');
+          }
+  }
 
   useEffect(() => {
-    handleLocationPermission()
+    handleLocationPermission();
+    handleBackgroundPermission();
   }, [])
 
   useEffect(() => {
@@ -68,7 +151,12 @@ const UserScreen = () => {
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     )
-  }, [])
+  }, []);
+  const onButtonClick = () => {
+    handleBackgroundPermission();
+      console.log('button pressed');
+      
+  }
 
   return (
     <Container>
@@ -95,7 +183,7 @@ const UserScreen = () => {
             />
             
       )}
-      <DepartureInformation />
+      <DepartureInformation onButtonClick={onButtonClick} />
     </Container>
   )
 }
